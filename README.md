@@ -2,6 +2,8 @@
 
 Aplicação que classifica perguntas em três níveis educacionais (Criança, Adolescente, Adulto) e gera respostas apropriadas usando IA.
 
+**🇺🇸 [English Version](README_EN.md)**
+
 ## 📋 Tecnologias
 
 - **Transformers (Hugging Face)**: Classificação com DistilBERT fine-tuned
