@@ -1,3 +1,4 @@
 results/
 modelo_finetuned/
 .env
+.venv
