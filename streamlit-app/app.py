@@ -1,4 +1,11 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 import streamlit as st
+from openai import OpenAI
 from transformers import pipeline
 import torch
 
@@ -15,12 +22,33 @@ st.markdown(
 DEVICE = 0 if torch.cuda.is_available() else -1
 
 
+# Helpers for reading numeric environment flags with defaults
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
 # Cache dos modelos
 @st.cache_resource
 def load_models():
     try:
         classifier = pipeline(
-            "text-classification", model="./modelo_finetuned", device=DEVICE
+            "text-classification", model="../modelo_finetuned", device=DEVICE
         )
         return classifier
     except Exception as e:
@@ -29,57 +57,74 @@ def load_models():
 
 
 @st.cache_resource
-def load_generator_model():
-    try:
-        generator = pipeline(
-            "text-generation",
-            model="gpt2",
-            device=DEVICE,
-            pad_token_id=50256,
-            model_kwargs={"torch_dtype": torch.float16} if DEVICE == 0 else {},
-            max_length=512,
+def load_openai_client():
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "A chave OPENAI_API_KEY não está definida. Configure-a no ambiente para gerar respostas."
         )
-        return generator
-    except Exception as e:
-        st.sidebar.warning(f"Não foi possível carregar o gerador de texto: {e}")
-        return None
+
+    client = OpenAI(api_key=api_key)
+    return client
 
 
 def generate_answer(prompt, nivel):
-    """Gera a resposta apropriada usando o modelo de texto."""
+    """Gera a resposta apropriada usando a OpenAI Text Generation API."""
 
     nivel_nomes = {0: "criança", 1: "adolescente", 2: "adulto"}
+    nivel_instrucoes = {
+        0: "Use uma linguagem simples, objetiva e com exemplos do cotidiano.",
+        1: "Explique com clareza e forneça analogias.",
+        2: "Forneça uma resposta aprofundada, mencionando teorias ou debates relevantes.",
+    }
+
+    instrucoes = nivel_instrucoes.get(
+        nivel, "Explique o conteúdo de forma clara e concisa."
+    )
+    system_message = f"{instrucoes} Responda como se estivesse falando com alguém do nível {nivel_nomes[nivel]} em no máximo 2 paragrafos."
+    fallback = f"Desculpe, não consegui gerar uma resposta adequada para o nível {nivel_nomes[nivel]}."
+
+    st.warning(f"[DEBUG] System message para OpenAI: {system_message}")
     try:
-        resultado = generator(
-            prompt,
-            max_new_tokens=50,
-            num_return_sequences=1,
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
             temperature=0.7,
-            truncation=True,
-            return_full_text=False,
-            do_sample=True,
+            top_p=0.9,
         )
 
-        st.warning(f"[DEBUG] Resultado bruto do gerador: {resultado}")
+        generated = response.choices[0].message.content if response.choices else ""
+        if not generated:
+            raise ValueError("Resposta vazia retornada pela OpenAI.")
 
-        return resultado[0]["generated_text"].strip()
-    except:
-        st.warning("Falha ao gerar resposta com o modelo. ")
-        return f"Desculpe, não consegui gerar uma resposta adequada para o nível {nivel_nomes[nivel]}."
+        return generated.strip()
+    except Exception as exc:
+        st.warning(f"Falha ao gerar resposta com a OpenAI: {exc}")
+        return fallback
 
 
 # Carregar modelos
 classifier = load_models()
-generator = load_generator_model()
+openai_client = None
+try:
+    openai_client = load_openai_client()
+except ValueError as exc:
+    st.error(str(exc))
+except Exception as exc:
+    st.error(f"Erro ao configurar o cliente OpenAI: {exc}")
 
 # testa se classifier foi carregado
 if classifier is None:
     st.error("O modelo de classificação não foi carregado corretamente.")
     st.stop()
 
-# testa se generator foi carregado
-if generator is None:
-    st.error("O modelo de geração de texto não foi carregado corretamente.")
+# testa se cliente OpenAI foi carregado
+if openai_client is None:
+    st.error("O cliente OpenAI não foi configurado corretamente. Verifique a variável OPENAI_API_KEY.")
     st.stop()
 
 with st.sidebar:
