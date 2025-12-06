@@ -2,6 +2,8 @@
 
 Aplicação que classifica perguntas em três níveis educacionais (Criança, Adolescente, Adulto) e gera respostas apropriadas usando IA.
 
+> ⚠️ **Nota**: Este projeto foi desenvolvido e testado em macOS. Os comandos podem precisar de ajustes para outros sistemas operacionais.
+
 **🇺🇸 [English Version](README_EN.md)**
 
 ## 📋 Tecnologias

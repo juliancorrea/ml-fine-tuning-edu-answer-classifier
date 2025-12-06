@@ -2,6 +2,8 @@
 
 Application that classifies questions into three educational levels (Child, Teenager, Adult) and generates appropriate responses using AI.
 
+> ⚠️ **Note**: This project was developed and tested on macOS. Commands may require adjustments for other operating systems.
+
 ## 📋 Technologies
 
 - **Transformers (Hugging Face)**: Classification with fine-tuned DistilBERT
